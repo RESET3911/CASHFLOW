@@ -1,12 +1,11 @@
 import { useState, useEffect, useCallback } from 'react';
-import type { Income, Expense, BusinessExpense, TaxSettings, User } from './types';
+import type { Income, Expense, BusinessExpense, TaxSettings } from './types';
 import {
   subscribeIncomes, saveIncome, deleteIncome,
   subscribeExpenses, saveExpense, deleteExpense,
   subscribeBusinessExpenses, saveBusinessExpense, deleteBusinessExpense,
   subscribeTaxSettings, saveTaxSettings,
 } from './utils/storage';
-import UserSelectScreen from './components/UserSelectScreen';
 import DashboardScreen from './components/DashboardScreen';
 import IncomeScreen from './components/IncomeScreen';
 import ExpenseScreen from './components/ExpenseScreen';
@@ -24,7 +23,6 @@ const DEFAULT_TAX_SETTINGS: TaxSettings = {
 };
 
 export default function App() {
-  const [user, setUser] = useState<User | null>(null);
   const [screen, setScreen] = useState<Screen>('dashboard');
   const [incomes, setIncomes] = useState<Income[]>([]);
   const [expenses, setExpenses] = useState<Expense[]>([]);
@@ -51,64 +49,36 @@ export default function App() {
   }, []);
 
   const handleSaveIncome = useCallback(async (item: Income) => {
-    try { await saveIncome(item); } catch (e) {
-      console.error(e);
-      showError('保存に失敗しました。');
-    }
+    try { await saveIncome(item); } catch (e) { console.error(e); showError('保存に失敗しました。'); }
   }, [showError]);
 
   const handleDeleteIncome = useCallback(async (id: string) => {
-    try { await deleteIncome(id); } catch (e) {
-      console.error(e);
-      showError('削除に失敗しました。');
-    }
+    try { await deleteIncome(id); } catch (e) { console.error(e); showError('削除に失敗しました。'); }
   }, [showError]);
 
   const handleSaveExpense = useCallback(async (item: Expense) => {
-    try { await saveExpense(item); } catch (e) {
-      console.error(e);
-      showError('保存に失敗しました。');
-    }
+    try { await saveExpense(item); } catch (e) { console.error(e); showError('保存に失敗しました。'); }
   }, [showError]);
 
   const handleDeleteExpense = useCallback(async (id: string) => {
-    try { await deleteExpense(id); } catch (e) {
-      console.error(e);
-      showError('削除に失敗しました。');
-    }
+    try { await deleteExpense(id); } catch (e) { console.error(e); showError('削除に失敗しました。'); }
   }, [showError]);
 
   const handleToggleExpense = useCallback(async (item: Expense) => {
-    try { await saveExpense(item); } catch (e) {
-      console.error(e);
-      showError('更新に失敗しました。');
-    }
+    try { await saveExpense(item); } catch (e) { console.error(e); showError('更新に失敗しました。'); }
   }, [showError]);
 
   const handleSaveBizExp = useCallback(async (item: BusinessExpense) => {
-    try { await saveBusinessExpense(item); } catch (e) {
-      console.error(e);
-      showError('保存に失敗しました。');
-    }
+    try { await saveBusinessExpense(item); } catch (e) { console.error(e); showError('保存に失敗しました。'); }
   }, [showError]);
 
   const handleDeleteBizExp = useCallback(async (id: string) => {
-    try { await deleteBusinessExpense(id); } catch (e) {
-      console.error(e);
-      showError('削除に失敗しました。');
-    }
+    try { await deleteBusinessExpense(id); } catch (e) { console.error(e); showError('削除に失敗しました。'); }
   }, [showError]);
 
   const handleSaveTaxSettings = useCallback(async (s: TaxSettings) => {
-    try { await saveTaxSettings(s); setTaxSettings(s); } catch (e) {
-      console.error(e);
-      showError('設定の保存に失敗しました。');
-    }
+    try { await saveTaxSettings(s); setTaxSettings(s); } catch (e) { console.error(e); showError('設定の保存に失敗しました。'); }
   }, [showError]);
-
-  if (!user) {
-    return <UserSelectScreen onSelect={setUser} />;
-  }
 
   if (loading) {
     return (
@@ -121,27 +91,26 @@ export default function App() {
   return (
     <div className="flex flex-col min-h-dvh">
       <header className="flex items-center justify-between px-4 pt-3 pb-2 bg-white/70 backdrop-blur-sm sticky top-0 z-30 border-b border-gray-100">
-        <button onClick={() => setUser(null)} className="text-gray-400 text-sm">← 戻る</button>
         <span className="font-extrabold text-sm bg-gradient-to-r from-violet-600 to-emerald-500 bg-clip-text text-transparent">
           💰 CASHFLOW
         </span>
-        <span className="text-sm text-gray-500">{user === 'takahashi' ? 'けんしん' : 'れな'}</span>
+        <button
+          onClick={() => setShowTaxSettings(true)}
+          className="w-8 h-8 flex items-center justify-center rounded-xl bg-white shadow-sm text-base"
+        >⚙️</button>
       </header>
 
       <main className="flex-1">
         {screen === 'dashboard' && (
           <DashboardScreen
-            user={user}
             incomes={incomes}
             expenses={expenses}
             businessExpenses={businessExpenses}
             taxSettings={taxSettings}
-            onOpenSettings={() => setShowTaxSettings(true)}
           />
         )}
         {screen === 'income' && (
           <IncomeScreen
-            user={user}
             incomes={incomes}
             onSave={handleSaveIncome}
             onDelete={handleDeleteIncome}
@@ -157,7 +126,6 @@ export default function App() {
         )}
         {screen === 'business' && (
           <BusinessExpenseScreen
-            user={user}
             expenses={businessExpenses}
             onSave={handleSaveBizExp}
             onDelete={handleDeleteBizExp}

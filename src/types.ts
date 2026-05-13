@@ -1,4 +1,4 @@
-export type User = 'saku' | 'takahashi';
+export type User = 'saku' | 'takahashi' | 'shared';
 
 export type IncomeType = 'fixed' | 'variable';
 

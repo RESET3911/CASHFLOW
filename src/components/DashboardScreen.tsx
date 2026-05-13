@@ -2,16 +2,14 @@ import { useMemo } from 'react';
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend,
 } from 'recharts';
-import type { Income, Expense, BusinessExpense, TaxSettings, User } from '../types';
+import type { Income, Expense, BusinessExpense, TaxSettings } from '../types';
 import { calcTax, calcYTDProjection, fmt } from '../utils/taxCalc';
 
 interface Props {
-  user: User;
   incomes: Income[];
   expenses: Expense[];
   businessExpenses: BusinessExpense[];
   taxSettings: TaxSettings;
-  onOpenSettings: () => void;
 }
 
 function getYearMonth(dateStr: string) {
@@ -19,61 +17,48 @@ function getYearMonth(dateStr: string) {
 }
 
 export default function DashboardScreen({
-  user, incomes, expenses, businessExpenses, taxSettings, onOpenSettings,
+  incomes, expenses, businessExpenses, taxSettings,
 }: Props) {
   const now = new Date();
   const thisYear = now.getFullYear();
   const thisMonth = now.getMonth() + 1;
   const thisYM = `${thisYear}-${String(thisMonth).padStart(2, '0')}`;
 
-  const myIncomes = useMemo(() => incomes.filter(i => i.userId === user), [incomes, user]);
-  const myBizExp = useMemo(() => businessExpenses.filter(e => e.userId === user), [businessExpenses, user]);
-
-  // 当月
   const monthlyFixed = useMemo(
-    () => myIncomes.filter(i => i.incomeType === 'fixed' && getYearMonth(i.invoiceDate) === thisYM)
+    () => incomes.filter(i => i.incomeType === 'fixed' && getYearMonth(i.invoiceDate) === thisYM)
       .reduce((s, i) => s + i.amount, 0),
-    [myIncomes, thisYM],
+    [incomes, thisYM],
   );
   const monthlyVariable = useMemo(
-    () => myIncomes.filter(i => i.incomeType === 'variable' && getYearMonth(i.invoiceDate) === thisYM)
+    () => incomes.filter(i => i.incomeType === 'variable' && getYearMonth(i.invoiceDate) === thisYM)
       .reduce((s, i) => s + i.amount, 0),
-    [myIncomes, thisYM],
+    [incomes, thisYM],
   );
   const monthlyIncome = monthlyFixed + monthlyVariable;
 
   const activeExpenses = useMemo(() => expenses.filter(e => e.isActive), [expenses]);
-  const monthlyFixedExp = useMemo(
-    () => activeExpenses.filter(e => e.expenseType === 'fixed').reduce((s, e) => s + e.amount, 0),
-    [activeExpenses],
-  );
-  const monthlyVariableExp = useMemo(
-    () => activeExpenses.filter(e => e.expenseType === 'variable').reduce((s, e) => s + e.amount, 0),
-    [activeExpenses],
-  );
+  const monthlyFixedExp = activeExpenses.filter(e => e.expenseType === 'fixed').reduce((s, e) => s + e.amount, 0);
+  const monthlyVariableExp = activeExpenses.filter(e => e.expenseType === 'variable').reduce((s, e) => s + e.amount, 0);
   const monthlyExpenseTotal = monthlyFixedExp + monthlyVariableExp;
 
-  // 年間推計（変動収入で税計算）
   const ytdVariableMonthly = useMemo(() => {
     return Array.from({ length: thisMonth }, (_, i) => {
       const ym = `${thisYear}-${String(i + 1).padStart(2, '0')}`;
-      return myIncomes
+      return incomes
         .filter(inc => inc.incomeType === 'variable' && getYearMonth(inc.invoiceDate) === ym)
         .reduce((s, inc) => s + inc.amount, 0);
     });
-  }, [myIncomes, thisYear, thisMonth]);
+  }, [incomes, thisYear, thisMonth]);
 
   const projectedVariableAnnual = calcYTDProjection(ytdVariableMonthly, thisMonth);
-  const projectedAnnualBizExp = myBizExp
+  const projectedAnnualBizExp = businessExpenses
     .filter(e => e.date.startsWith(String(thisYear)))
     .reduce((s, e) => s + e.amount, 0) / thisMonth * 12;
-
   const projectedBusinessIncome = Math.max(0, projectedVariableAnnual - projectedAnnualBizExp);
 
-  // 固定収入年額を給与所得として使う（設定の給与年収が未設定の場合）
   const effectiveSalaryIncome = taxSettings.salaryIncome > 0
     ? taxSettings.salaryIncome
-    : myIncomes.filter(i => i.incomeType === 'fixed' && i.invoiceDate.startsWith(String(thisYear)))
+    : incomes.filter(i => i.incomeType === 'fixed' && i.invoiceDate.startsWith(String(thisYear)))
         .reduce((s, i) => s + i.amount, 0) / thisMonth * 12;
 
   const tax = useMemo(() => calcTax({
@@ -85,14 +70,13 @@ export default function DashboardScreen({
 
   const netMonthly = monthlyIncome - monthlyExpenseTotal - tax.monthlyProvision;
 
-  // グラフ（過去6ヶ月）
   const chartData = useMemo(() => {
     return Array.from({ length: 6 }, (_, i) => {
       const d = new Date(thisYear, thisMonth - 1 - (5 - i), 1);
       const ym = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-      const fixedInc = myIncomes.filter(inc => inc.incomeType === 'fixed' && getYearMonth(inc.invoiceDate) === ym)
+      const fixedInc = incomes.filter(inc => inc.incomeType === 'fixed' && getYearMonth(inc.invoiceDate) === ym)
         .reduce((s, inc) => s + inc.amount, 0);
-      const varInc = myIncomes.filter(inc => inc.incomeType === 'variable' && getYearMonth(inc.invoiceDate) === ym)
+      const varInc = incomes.filter(inc => inc.incomeType === 'variable' && getYearMonth(inc.invoiceDate) === ym)
         .reduce((s, inc) => s + inc.amount, 0);
       return {
         month: `${d.getMonth() + 1}月`,
@@ -102,29 +86,12 @@ export default function DashboardScreen({
         税金積立: (fixedInc + varInc) > 0 ? tax.monthlyProvision : 0,
       };
     });
-  }, [myIncomes, thisYear, thisMonth, monthlyExpenseTotal, tax.monthlyProvision]);
-
-  const SummaryCard = ({ label, value, sub, color }: {
-    label: string; value: string; sub?: string; color: string;
-  }) => (
-    <div className={`rounded-2xl p-4 ${color}`}>
-      <div className="text-xs font-medium opacity-70 mb-1">{label}</div>
-      <div className="text-xl font-bold">{value}</div>
-      {sub && <div className="text-xs opacity-60 mt-0.5">{sub}</div>}
-    </div>
-  );
+  }, [incomes, thisYear, thisMonth, monthlyExpenseTotal, tax.monthlyProvision]);
 
   return (
     <div className="flex flex-col gap-4 px-4 pt-4 pb-28">
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-lg font-bold text-gray-900">{thisYear}年{thisMonth}月</h2>
-          <p className="text-xs text-gray-400">{user === 'takahashi' ? 'けんしん' : 'れな'}</p>
-        </div>
-        <button
-          onClick={onOpenSettings}
-          className="w-9 h-9 flex items-center justify-center rounded-xl bg-white shadow-sm text-lg"
-        >⚙️</button>
+      <div>
+        <h2 className="text-lg font-bold text-gray-900">{thisYear}年{thisMonth}月</h2>
       </div>
 
       {/* 収入内訳 */}
@@ -161,18 +128,16 @@ export default function DashboardScreen({
 
       {/* 手取り・税 */}
       <div className="grid grid-cols-2 gap-3">
-        <SummaryCard
-          label="税金積立目安"
-          value={fmt(tax.monthlyProvision)}
-          color="bg-amber-50 text-amber-800"
-          sub="年間推計ベース"
-        />
-        <SummaryCard
-          label="推定手取り"
-          value={fmt(Math.max(0, netMonthly))}
-          color={netMonthly >= 0 ? 'bg-violet-50 text-violet-800' : 'bg-red-100 text-red-800'}
-          sub="収入-支出-税積立"
-        />
+        <div className="bg-amber-50 text-amber-800 rounded-2xl p-4">
+          <div className="text-xs font-medium opacity-70 mb-1">税金積立目安</div>
+          <div className="text-xl font-bold">{fmt(tax.monthlyProvision)}</div>
+          <div className="text-xs opacity-60 mt-0.5">年間推計ベース</div>
+        </div>
+        <div className={`rounded-2xl p-4 ${netMonthly >= 0 ? 'bg-violet-50 text-violet-800' : 'bg-red-100 text-red-800'}`}>
+          <div className="text-xs font-medium opacity-70 mb-1">推定手取り</div>
+          <div className="text-xl font-bold">{fmt(Math.max(0, netMonthly))}</div>
+          <div className="text-xs opacity-60 mt-0.5">収入-支出-税積立</div>
+        </div>
       </div>
 
       {/* 月別グラフ */}
@@ -186,11 +151,7 @@ export default function DashboardScreen({
               tickFormatter={v => v >= 10000 ? `${v / 10000}万` : `${v}`}
               width={36}
             />
-            <Tooltip
-              formatter={(v) => fmt(Number(v))}
-              labelStyle={{ fontSize: 12 }}
-              contentStyle={{ fontSize: 12 }}
-            />
+            <Tooltip formatter={(v) => fmt(Number(v))} labelStyle={{ fontSize: 12 }} contentStyle={{ fontSize: 12 }} />
             <Legend iconSize={8} wrapperStyle={{ fontSize: 10 }} />
             <Bar dataKey="固定給" fill="#10b981" radius={[3, 3, 0, 0]} />
             <Bar dataKey="変動収入" fill="#8b5cf6" radius={[3, 3, 0, 0]} />
@@ -212,15 +173,9 @@ export default function DashboardScreen({
             { label: '住民税概算', value: fmt(tax.residentTax) },
             { label: '税負担合計', value: fmt(tax.totalTax), highlight: true },
           ].map(row => (
-            <div key={row.label} className={`flex justify-between items-center py-1 ${
-              row.highlight ? 'border-t border-gray-100 pt-2' : ''
-            }`}>
-              <span className={row.highlight ? 'font-semibold text-gray-900' : 'text-gray-500'}>
-                {row.label}
-              </span>
-              <span className={`font-mono ${row.highlight ? 'font-bold text-gray-900' : 'text-gray-700'}`}>
-                {row.value}
-              </span>
+            <div key={row.label} className={`flex justify-between items-center py-1 ${row.highlight ? 'border-t border-gray-100 pt-2' : ''}`}>
+              <span className={row.highlight ? 'font-semibold text-gray-900' : 'text-gray-500'}>{row.label}</span>
+              <span className={`font-mono ${row.highlight ? 'font-bold text-gray-900' : 'text-gray-700'}`}>{row.value}</span>
             </div>
           ))}
         </div>

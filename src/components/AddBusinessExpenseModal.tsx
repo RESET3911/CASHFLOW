@@ -1,10 +1,9 @@
 import { useState } from 'react';
 import { v4 as uuidv4 } from 'uuid';
-import type { BusinessExpense, BusinessExpenseCategory, User } from '../types';
+import type { BusinessExpense, BusinessExpenseCategory } from '../types';
 import { BUSINESS_EXPENSE_CATEGORY_LABELS } from '../types';
 
 interface Props {
-  user: User;
   editItem?: BusinessExpense;
   onSave: (item: BusinessExpense) => void;
   onClose: () => void;
@@ -12,7 +11,7 @@ interface Props {
 
 const CATEGORIES = Object.keys(BUSINESS_EXPENSE_CATEGORY_LABELS) as BusinessExpenseCategory[];
 
-export default function AddBusinessExpenseModal({ user, editItem, onSave, onClose }: Props) {
+export default function AddBusinessExpenseModal({ editItem, onSave, onClose }: Props) {
   const today = new Date().toISOString().substring(0, 10);
   const [date, setDate] = useState(editItem?.date ?? today);
   const [amount, setAmount] = useState(editItem ? String(editItem.amount) : '');
@@ -25,7 +24,7 @@ export default function AddBusinessExpenseModal({ user, editItem, onSave, onClos
     if (!description.trim() || isNaN(num) || num <= 0) return;
     onSave({
       id: editItem?.id ?? uuidv4(),
-      userId: user,
+      userId: 'shared',
       date,
       amount: num,
       category,

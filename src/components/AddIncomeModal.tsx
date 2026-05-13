@@ -1,10 +1,9 @@
 import { useState } from 'react';
 import { v4 as uuidv4 } from 'uuid';
-import type { Income, IncomeType, User } from '../types';
+import type { Income, IncomeType } from '../types';
 import { INCOME_TYPE_LABELS } from '../types';
 
 interface Props {
-  user: User;
   editItem?: Income;
   onSave: (item: Income) => void;
   onClose: () => void;
@@ -12,7 +11,7 @@ interface Props {
 
 const INCOME_TYPES: IncomeType[] = ['fixed', 'variable'];
 
-export default function AddIncomeModal({ user, editItem, onSave, onClose }: Props) {
+export default function AddIncomeModal({ editItem, onSave, onClose }: Props) {
   const today = new Date().toISOString().substring(0, 10);
   const [incomeType, setIncomeType] = useState<IncomeType>(editItem?.incomeType ?? 'variable');
   const [clientName, setClientName] = useState(editItem?.clientName ?? '');
@@ -30,7 +29,7 @@ export default function AddIncomeModal({ user, editItem, onSave, onClose }: Prop
     if (!clientName.trim() || isNaN(num) || num <= 0) return;
     onSave({
       id: editItem?.id ?? uuidv4(),
-      userId: user,
+      userId: 'shared',
       incomeType,
       clientName: clientName.trim(),
       projectName: projectName.trim(),
@@ -48,126 +47,62 @@ export default function AddIncomeModal({ user, editItem, onSave, onClose }: Prop
 
   return (
     <div className="fixed inset-0 bg-black/40 z-50 flex items-end" onClick={onClose}>
-      <div
-        className="bg-gray-50 w-full rounded-t-3xl p-5 pb-safe max-h-[90dvh] overflow-y-auto"
-        onClick={e => e.stopPropagation()}
-      >
+      <div className="bg-gray-50 w-full rounded-t-3xl p-5 pb-safe max-h-[90dvh] overflow-y-auto" onClick={e => e.stopPropagation()}>
         <div className="flex items-center justify-between mb-5">
-          <h3 className="text-base font-bold text-gray-900">
-            {editItem ? '収入を編集' : '収入を追加'}
-          </h3>
+          <h3 className="text-base font-bold text-gray-900">{editItem ? '収入を編集' : '収入を追加'}</h3>
           <button onClick={onClose} className="text-gray-400 text-2xl leading-none">×</button>
         </div>
 
-        {/* 収入タイプ */}
         <div className="flex gap-2 mb-5">
           {INCOME_TYPES.map(t => (
-            <button
-              key={t}
-              onClick={() => setIncomeType(t)}
+            <button key={t} onClick={() => setIncomeType(t)}
               className={`flex-1 py-2.5 rounded-xl text-sm font-semibold transition-colors ${
                 incomeType === t
-                  ? t === 'fixed'
-                    ? 'bg-emerald-500 text-white'
-                    : 'bg-violet-500 text-white'
+                  ? t === 'fixed' ? 'bg-emerald-500 text-white' : 'bg-violet-500 text-white'
                   : 'bg-white border border-gray-200 text-gray-500'
               }`}
             >
-              {t === 'fixed' ? '🏢 ' : '💼 '}
-              {INCOME_TYPE_LABELS[t]}
+              {t === 'fixed' ? '🏢 ' : '💼 '}{INCOME_TYPE_LABELS[t]}
             </button>
           ))}
         </div>
 
         <div className="flex flex-col gap-4">
           <div className="flex flex-col gap-1">
-            <label className="text-xs font-medium text-gray-500">
-              {isFixed ? '会社名・支払元 *' : 'クライアント名 *'}
-            </label>
-            <input
-              className={inputCls}
-              placeholder={isFixed ? '例: 株式会社○○' : '例: 制作会社名'}
-              value={clientName}
-              onChange={e => setClientName(e.target.value)}
-            />
+            <label className="text-xs font-medium text-gray-500">{isFixed ? '会社名・支払元 *' : 'クライアント名 *'}</label>
+            <input className={inputCls} placeholder={isFixed ? '例: 株式会社○○' : '例: 制作会社名'} value={clientName} onChange={e => setClientName(e.target.value)} />
           </div>
-
           <div className="flex flex-col gap-1">
-            <label className="text-xs font-medium text-gray-500">
-              {isFixed ? '備考（役職など）' : '案件名'}
-            </label>
-            <input
-              className={inputCls}
-              placeholder={isFixed ? '例: 月給・ボーナス' : '例: VFXコンポジット作業'}
-              value={projectName}
-              onChange={e => setProjectName(e.target.value)}
-            />
+            <label className="text-xs font-medium text-gray-500">{isFixed ? '備考' : '案件名'}</label>
+            <input className={inputCls} placeholder={isFixed ? '例: 月給・ボーナス' : '例: VFXコンポジット作業'} value={projectName} onChange={e => setProjectName(e.target.value)} />
           </div>
-
           <div className="flex flex-col gap-1">
             <label className="text-xs font-medium text-gray-500">金額（税込）*</label>
-            <input
-              className={inputCls}
-              type="number"
-              placeholder="500000"
-              value={amount}
-              onChange={e => setAmount(e.target.value)}
-              inputMode="numeric"
-            />
+            <input className={inputCls} type="number" placeholder="500000" value={amount} onChange={e => setAmount(e.target.value)} inputMode="numeric" />
           </div>
-
           <div className="flex flex-col gap-1">
-            <label className="text-xs font-medium text-gray-500">
-              {isFixed ? '支払日 *' : '請求日 *'}
-            </label>
-            <input
-              className={inputCls}
-              type="date"
-              value={invoiceDate}
-              onChange={e => setInvoiceDate(e.target.value)}
-            />
+            <label className="text-xs font-medium text-gray-500">{isFixed ? '支払日 *' : '請求日 *'}</label>
+            <input className={inputCls} type="date" value={invoiceDate} onChange={e => setInvoiceDate(e.target.value)} />
           </div>
-
           <div className="flex items-center gap-3">
-            <button
-              onClick={() => setIsPaid(!isPaid)}
-              className={`w-11 h-6 rounded-full transition-colors relative flex-shrink-0 ${
-                isPaid ? 'bg-emerald-500' : 'bg-gray-200'
-              }`}
+            <button onClick={() => setIsPaid(!isPaid)}
+              className={`w-11 h-6 rounded-full transition-colors relative flex-shrink-0 ${isPaid ? 'bg-emerald-500' : 'bg-gray-200'}`}
             >
-              <span
-                className="absolute top-0.5 w-5 h-5 rounded-full bg-white shadow-sm transition-all"
-                style={{ left: isPaid ? '18px' : '2px' }}
-              />
+              <span className="absolute top-0.5 w-5 h-5 rounded-full bg-white shadow-sm transition-all" style={{ left: isPaid ? '18px' : '2px' }} />
             </button>
             <span className="text-sm text-gray-700">入金済み</span>
           </div>
-
           {isPaid && (
             <div className="flex flex-col gap-1">
               <label className="text-xs font-medium text-gray-500">入金日</label>
-              <input
-                className={inputCls}
-                type="date"
-                value={paidDate}
-                onChange={e => setPaidDate(e.target.value)}
-              />
+              <input className={inputCls} type="date" value={paidDate} onChange={e => setPaidDate(e.target.value)} />
             </div>
           )}
-
           <div className="flex flex-col gap-1">
             <label className="text-xs font-medium text-gray-500">メモ</label>
-            <input
-              className={inputCls}
-              placeholder="任意"
-              value={memo}
-              onChange={e => setMemo(e.target.value)}
-            />
+            <input className={inputCls} placeholder="任意" value={memo} onChange={e => setMemo(e.target.value)} />
           </div>
-
-          <button
-            onClick={handleSave}
-            disabled={!clientName.trim() || !amount}
+          <button onClick={handleSave} disabled={!clientName.trim() || !amount}
             className="w-full py-3 rounded-2xl bg-gradient-to-r from-violet-500 to-emerald-500 text-white font-bold text-sm disabled:opacity-40 active:scale-95 transition-transform"
           >
             {editItem ? '更新する' : '追加する'}

@@ -1,41 +1,31 @@
 import { useState, useMemo } from 'react';
-import type { BusinessExpense, User } from '../types';
-import {
-  BUSINESS_EXPENSE_CATEGORY_LABELS,
-  BUSINESS_EXPENSE_CATEGORY_COLORS,
-} from '../types';
+import type { BusinessExpense } from '../types';
+import { BUSINESS_EXPENSE_CATEGORY_LABELS, BUSINESS_EXPENSE_CATEGORY_COLORS } from '../types';
 import { fmt } from '../utils/taxCalc';
 import AddBusinessExpenseModal from './AddBusinessExpenseModal';
 
 interface Props {
-  user: User;
   expenses: BusinessExpense[];
   onSave: (item: BusinessExpense) => void;
   onDelete: (id: string) => void;
 }
 
-export default function BusinessExpenseScreen({ user, expenses, onSave, onDelete }: Props) {
+export default function BusinessExpenseScreen({ expenses, onSave, onDelete }: Props) {
   const [showAdd, setShowAdd] = useState(false);
   const [editItem, setEditItem] = useState<BusinessExpense | undefined>();
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
 
-  const myExpenses = useMemo(
-    () => expenses.filter(e => e.userId === user),
-    [expenses, user],
-  );
-
   const years = useMemo(() => {
-    const set = new Set(myExpenses.map(e => parseInt(e.date.substring(0, 4))));
+    const set = new Set(expenses.map(e => parseInt(e.date.substring(0, 4))));
     set.add(new Date().getFullYear());
     return Array.from(set).sort((a, b) => b - a);
-  }, [myExpenses]);
+  }, [expenses]);
 
   const yearExpenses = useMemo(
-    () => myExpenses.filter(e => e.date.startsWith(String(selectedYear))),
-    [myExpenses, selectedYear],
+    () => expenses.filter(e => e.date.startsWith(String(selectedYear))),
+    [expenses, selectedYear],
   );
 
-  // 月別グループ
   const monthlyGroups = useMemo(() => {
     const map: Record<string, BusinessExpense[]> = {};
     for (const e of yearExpenses) {
@@ -52,7 +42,6 @@ export default function BusinessExpenseScreen({ user, expenses, onSave, onDelete
       }));
   }, [yearExpenses]);
 
-  // カテゴリ別集計
   const categoryTotals = useMemo(() => {
     const map: Partial<Record<BusinessExpense['category'], number>> = {};
     for (const e of yearExpenses) {
@@ -80,60 +69,43 @@ export default function BusinessExpenseScreen({ user, expenses, onSave, onDelete
         </button>
       </div>
 
-      {/* Year tabs */}
       <div className="flex gap-2 px-4 mb-4 overflow-x-auto">
         {years.map(y => (
-          <button
-            key={y}
-            onClick={() => setSelectedYear(y)}
+          <button key={y} onClick={() => setSelectedYear(y)}
             className={`flex-shrink-0 px-4 py-1.5 rounded-full text-sm font-medium transition-colors ${
-              selectedYear === y
-                ? 'bg-violet-600 text-white'
-                : 'bg-white text-gray-500 border border-gray-200'
+              selectedYear === y ? 'bg-violet-600 text-white' : 'bg-white text-gray-500 border border-gray-200'
             }`}
-          >
-            {y}年
-          </button>
+          >{y}年</button>
         ))}
       </div>
 
       {yearTotal > 0 && (
         <>
-          {/* Year total */}
           <div className="mx-4 mb-3 bg-violet-50 rounded-2xl px-4 py-3 flex justify-between items-center">
             <span className="text-sm text-violet-700">{selectedYear}年 経費合計</span>
             <span className="font-bold text-violet-900 text-lg">{fmt(yearTotal)}</span>
           </div>
-
-          {/* Category breakdown */}
           <div className="mx-4 mb-4 bg-white rounded-2xl p-4 shadow-sm">
             <div className="text-xs font-semibold text-gray-500 mb-3">勘定科目別</div>
             <div className="flex flex-col gap-2">
-              {categoryTotals.map(({ cat, total }) => {
-                const pct = yearTotal > 0 ? (total / yearTotal) * 100 : 0;
-                return (
-                  <div key={cat}>
-                    <div className="flex justify-between items-center mb-1">
-                      <span className={`text-xs px-2 py-0.5 rounded-full ${BUSINESS_EXPENSE_CATEGORY_COLORS[cat]}`}>
-                        {BUSINESS_EXPENSE_CATEGORY_LABELS[cat]}
-                      </span>
-                      <span className="text-xs font-mono text-gray-700">{fmt(total)}</span>
-                    </div>
-                    <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
-                      <div
-                        className="h-full bg-violet-400 rounded-full"
-                        style={{ width: `${pct}%` }}
-                      />
-                    </div>
+              {categoryTotals.map(({ cat, total }) => (
+                <div key={cat}>
+                  <div className="flex justify-between items-center mb-1">
+                    <span className={`text-xs px-2 py-0.5 rounded-full ${BUSINESS_EXPENSE_CATEGORY_COLORS[cat]}`}>
+                      {BUSINESS_EXPENSE_CATEGORY_LABELS[cat]}
+                    </span>
+                    <span className="text-xs font-mono text-gray-700">{fmt(total)}</span>
                   </div>
-                );
-              })}
+                  <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                    <div className="h-full bg-violet-400 rounded-full" style={{ width: `${(total / yearTotal) * 100}%` }} />
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
         </>
       )}
 
-      {/* Monthly list */}
       <div className="px-4 flex flex-col gap-4">
         {monthlyGroups.length === 0 ? (
           <div className="text-center py-12 text-gray-400 text-sm">
@@ -160,23 +132,13 @@ export default function BusinessExpenseScreen({ user, expenses, onSave, onDelete
                           <span className="text-xs text-gray-400">{item.date}</span>
                         </div>
                         <div className="text-sm text-gray-800 font-medium truncate">{item.description}</div>
-                        {item.memo && (
-                          <div className="text-xs text-gray-400 mt-0.5 truncate">{item.memo}</div>
-                        )}
+                        {item.memo && <div className="text-xs text-gray-400 mt-0.5 truncate">{item.memo}</div>}
                       </div>
                       <div className="flex flex-col items-end gap-2">
                         <span className="font-bold text-gray-900 font-mono text-sm">{fmt(item.amount)}</span>
                         <div className="flex gap-1">
-                          <button
-                            onClick={() => { setEditItem(item); setShowAdd(true); }}
-                            className="text-xs text-violet-500 px-2 py-1 rounded-lg bg-violet-50"
-                          >編集</button>
-                          <button
-                            onClick={() => {
-                              if (confirm(`「${item.description}」を削除しますか？`)) onDelete(item.id);
-                            }}
-                            className="text-xs text-red-400 px-2 py-1 rounded-lg bg-red-50"
-                          >削除</button>
+                          <button onClick={() => { setEditItem(item); setShowAdd(true); }} className="text-xs text-violet-500 px-2 py-1 rounded-lg bg-violet-50">編集</button>
+                          <button onClick={() => { if (confirm(`「${item.description}」を削除しますか？`)) onDelete(item.id); }} className="text-xs text-red-400 px-2 py-1 rounded-lg bg-red-50">削除</button>
                         </div>
                       </div>
                     </div>
@@ -189,12 +151,7 @@ export default function BusinessExpenseScreen({ user, expenses, onSave, onDelete
       </div>
 
       {showAdd && (
-        <AddBusinessExpenseModal
-          user={user}
-          editItem={editItem}
-          onSave={onSave}
-          onClose={() => setShowAdd(false)}
-        />
+        <AddBusinessExpenseModal editItem={editItem} onSave={onSave} onClose={() => setShowAdd(false)} />
       )}
     </div>
   );
