@@ -144,6 +144,11 @@ export default function IncomeScreen({ incomes, onSave, onDelete }: Props) {
                           {item.isPaid && item.paidDate && ` → 入金: ${item.paidDate}`}
                           {!item.isPaid && ' • 未入金'}
                         </div>
+                        {item.outsourcingCost && item.outsourcingCost > 0 && (
+                          <div className="text-xs text-indigo-500 mt-0.5">
+                            外注費 -{fmt(item.outsourcingCost)} → 純収入 {fmt(item.amount - item.outsourcingCost)}
+                          </div>
+                        )}
                       </div>
                       <div className="flex flex-col items-end gap-2">
                         <span className="font-bold text-gray-900 font-mono text-sm">{fmt(item.amount)}</span>

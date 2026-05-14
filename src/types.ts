@@ -35,6 +35,7 @@ export interface Income {
   invoiceDate: string;   // YYYY-MM-DD
   paidDate?: string;
   isPaid: boolean;
+  outsourcingCost?: number;
   memo?: string;
   createdAt: number;
 }

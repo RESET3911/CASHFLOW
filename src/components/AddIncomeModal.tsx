@@ -20,6 +20,7 @@ export default function AddIncomeModal({ editItem, onSave, onClose }: Props) {
   const [invoiceDate, setInvoiceDate] = useState(editItem?.invoiceDate ?? today);
   const [paidDate, setPaidDate] = useState(editItem?.paidDate ?? '');
   const [isPaid, setIsPaid] = useState(editItem?.isPaid ?? false);
+  const [outsourcingCost, setOutsourcingCost] = useState(editItem?.outsourcingCost ? String(editItem.outsourcingCost) : '');
   const [memo, setMemo] = useState(editItem?.memo ?? '');
 
   const isFixed = incomeType === 'fixed';
@@ -27,6 +28,7 @@ export default function AddIncomeModal({ editItem, onSave, onClose }: Props) {
   const handleSave = () => {
     const num = parseInt(amount.replace(/,/g, ''), 10);
     if (!clientName.trim() || isNaN(num) || num <= 0) return;
+    const numOutsourcing = parseInt(outsourcingCost.replace(/,/g, ''), 10);
     onSave({
       id: editItem?.id ?? uuidv4(),
       userId: 'shared',
@@ -37,6 +39,7 @@ export default function AddIncomeModal({ editItem, onSave, onClose }: Props) {
       invoiceDate,
       paidDate: isPaid && paidDate ? paidDate : undefined,
       isPaid,
+      outsourcingCost: !isFixed && numOutsourcing > 0 ? numOutsourcing : undefined,
       memo: memo.trim() || undefined,
       createdAt: editItem?.createdAt ?? Date.now(),
     });
@@ -80,6 +83,17 @@ export default function AddIncomeModal({ editItem, onSave, onClose }: Props) {
             <label className="text-xs font-medium text-gray-500">金額（税込）*</label>
             <input className={inputCls} type="number" placeholder="500000" value={amount} onChange={e => setAmount(e.target.value)} inputMode="numeric" />
           </div>
+          {!isFixed && (
+            <div className="flex flex-col gap-1">
+              <label className="text-xs font-medium text-gray-500">外注費（この案件で支払った外注費）</label>
+              <input className={inputCls} type="number" placeholder="0" value={outsourcingCost} onChange={e => setOutsourcingCost(e.target.value)} inputMode="numeric" />
+              {outsourcingCost && parseInt(outsourcingCost) > 0 && amount && parseInt(amount) > 0 && (
+                <div className="text-xs text-violet-600 bg-violet-50 rounded-lg px-2 py-1">
+                  純収入: ¥{(parseInt(amount) - parseInt(outsourcingCost)).toLocaleString('ja-JP')} ／ 経費タブに自動登録されます
+                </div>
+              )}
+            </div>
+          )}
           <div className="flex flex-col gap-1">
             <label className="text-xs font-medium text-gray-500">{isFixed ? '支払日 *' : '請求日 *'}</label>
             <input className={inputCls} type="date" value={invoiceDate} onChange={e => setInvoiceDate(e.target.value)} />

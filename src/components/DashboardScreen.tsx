@@ -41,6 +41,11 @@ export default function DashboardScreen({
   const monthlyVariableExp = activeExpenses.filter(e => e.expenseType === 'variable').reduce((s, e) => s + e.amount, 0);
   const monthlyExpenseTotal = monthlyFixedExp + monthlyVariableExp;
 
+  const monthlyBizExp = useMemo(
+    () => businessExpenses.filter(e => e.date.startsWith(thisYM)).reduce((s, e) => s + e.amount, 0),
+    [businessExpenses, thisYM],
+  );
+
   const ytdVariableMonthly = useMemo(() => {
     return Array.from({ length: thisMonth }, (_, i) => {
       const ym = `${thisYear}-${String(i + 1).padStart(2, '0')}`;
@@ -68,7 +73,7 @@ export default function DashboardScreen({
     nhiPremium: taxSettings.nhiPremium,
   }), [projectedBusinessIncome, effectiveSalaryIncome, taxSettings]);
 
-  const netMonthly = monthlyIncome - monthlyExpenseTotal - tax.monthlyProvision;
+  const netMonthly = monthlyIncome - monthlyExpenseTotal - monthlyBizExp - tax.monthlyProvision;
 
   const chartData = useMemo(() => {
     return Array.from({ length: 6 }, (_, i) => {
@@ -78,15 +83,19 @@ export default function DashboardScreen({
         .reduce((s, inc) => s + inc.amount, 0);
       const varInc = incomes.filter(inc => inc.incomeType === 'variable' && getYearMonth(inc.invoiceDate) === ym)
         .reduce((s, inc) => s + inc.amount, 0);
+      const bizExp = businessExpenses
+        .filter(e => e.date.startsWith(ym))
+        .reduce((s, e) => s + e.amount, 0);
       return {
         month: `${d.getMonth() + 1}月`,
         固定給: fixedInc,
         変動収入: varInc,
         支出: monthlyExpenseTotal,
+        経費: bizExp,
         税金積立: (fixedInc + varInc) > 0 ? tax.monthlyProvision : 0,
       };
     });
-  }, [incomes, thisYear, thisMonth, monthlyExpenseTotal, tax.monthlyProvision]);
+  }, [incomes, businessExpenses, thisYear, thisMonth, monthlyExpenseTotal, tax.monthlyProvision]);
 
   return (
     <div className="flex flex-col gap-4 px-4 pt-4 pb-28">
@@ -126,6 +135,23 @@ export default function DashboardScreen({
         <div className="text-right text-sm font-bold text-gray-800">合計 {fmt(monthlyExpenseTotal)}</div>
       </div>
 
+      {/* 当月経費 */}
+      {monthlyBizExp > 0 && (
+        <div className="bg-white rounded-2xl p-4 shadow-sm">
+          <div className="text-xs font-semibold text-gray-500 mb-2">当月経費（仕事の経費）</div>
+          <div className="flex gap-2">
+            <div className="flex-1 bg-indigo-50 rounded-xl px-3 py-2">
+              <div className="text-xs text-indigo-600">🧾 経費合計</div>
+              <div className="font-bold text-indigo-800 text-sm">{fmt(monthlyBizExp)}</div>
+            </div>
+            <div className="flex-1 bg-gray-50 rounded-xl px-3 py-2">
+              <div className="text-xs text-gray-400">経費差引後の収入</div>
+              <div className="font-bold text-gray-700 text-sm">{fmt(Math.max(0, monthlyIncome - monthlyBizExp))}</div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* 手取り・税 */}
       <div className="grid grid-cols-2 gap-3">
         <div className="bg-amber-50 text-amber-800 rounded-2xl p-4">
@@ -156,6 +182,7 @@ export default function DashboardScreen({
             <Bar dataKey="固定給" fill="#10b981" radius={[3, 3, 0, 0]} />
             <Bar dataKey="変動収入" fill="#8b5cf6" radius={[3, 3, 0, 0]} />
             <Bar dataKey="支出" fill="#f43f5e" radius={[3, 3, 0, 0]} />
+            <Bar dataKey="経費" fill="#6366f1" radius={[3, 3, 0, 0]} />
             <Bar dataKey="税金積立" fill="#f59e0b" radius={[3, 3, 0, 0]} />
           </BarChart>
         </ResponsiveContainer>

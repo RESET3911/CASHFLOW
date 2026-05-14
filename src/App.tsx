@@ -49,11 +49,30 @@ export default function App() {
   }, []);
 
   const handleSaveIncome = useCallback(async (item: Income) => {
-    try { await saveIncome(item); } catch (e) { console.error(e); showError('保存に失敗しました。'); }
+    try {
+      await saveIncome(item);
+      const bizExpId = `${item.id}_outsourcing`;
+      if (item.incomeType === 'variable' && item.outsourcingCost && item.outsourcingCost > 0) {
+        await saveBusinessExpense({
+          id: bizExpId,
+          userId: 'shared',
+          date: item.invoiceDate,
+          amount: item.outsourcingCost,
+          category: 'outsourcing',
+          description: `外注費: ${item.clientName}${item.projectName ? ` / ${item.projectName}` : ''}`,
+          createdAt: Date.now(),
+        });
+      } else {
+        await deleteBusinessExpense(bizExpId).catch(() => {});
+      }
+    } catch (e) { console.error(e); showError('保存に失敗しました。'); }
   }, [showError]);
 
   const handleDeleteIncome = useCallback(async (id: string) => {
-    try { await deleteIncome(id); } catch (e) { console.error(e); showError('削除に失敗しました。'); }
+    try {
+      await deleteIncome(id);
+      await deleteBusinessExpense(`${id}_outsourcing`).catch(() => {});
+    } catch (e) { console.error(e); showError('削除に失敗しました。'); }
   }, [showError]);
 
   const handleSaveExpense = useCallback(async (item: Expense) => {
