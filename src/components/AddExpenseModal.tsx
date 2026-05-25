@@ -11,6 +11,7 @@ interface Props {
 }
 
 const FIXED_CATEGORIES: ExpenseCategory[] = ['rent', 'insurance', 'pension', 'health_insurance', 'communication', 'other'];
+const SEMI_FIXED_CATEGORIES: ExpenseCategory[] = ['utilities', 'medical', 'communication', 'other'];
 const VARIABLE_CATEGORIES: ExpenseCategory[] = ['subscription', 'food', 'entertainment', 'communication', 'other'];
 
 export default function AddExpenseModal({ defaultType = 'fixed', editItem, onSave, onClose }: Props) {
@@ -20,7 +21,7 @@ export default function AddExpenseModal({ defaultType = 'fixed', editItem, onSav
   const [category, setCategory] = useState<ExpenseCategory>(editItem?.category ?? 'other');
   const [note, setNote] = useState(editItem?.note ?? '');
 
-  const categories = expenseType === 'fixed' ? FIXED_CATEGORIES : VARIABLE_CATEGORIES;
+  const categories = expenseType === 'fixed' ? FIXED_CATEGORIES : expenseType === 'semi_fixed' ? SEMI_FIXED_CATEGORIES : VARIABLE_CATEGORIES;
 
   const handleSave = () => {
     const num = parseInt(amount.replace(/,/g, ''), 10);
@@ -54,20 +55,22 @@ export default function AddExpenseModal({ defaultType = 'fixed', editItem, onSav
         </div>
 
         {/* Type selector */}
-        <div className="flex gap-2 mb-5">
-          {(['fixed', 'variable'] as ExpenseType[]).map(t => (
+        <div className="flex gap-1.5 mb-5">
+          {(['fixed', 'semi_fixed', 'variable'] as ExpenseType[]).map(t => (
             <button
               key={t}
               onClick={() => { setExpenseType(t); setCategory('other'); }}
-              className={`flex-1 py-2.5 rounded-xl text-sm font-semibold transition-colors ${
+              className={`flex-1 py-2.5 rounded-xl text-xs font-semibold transition-colors ${
                 expenseType === t
                   ? t === 'fixed'
                     ? 'bg-rose-500 text-white'
-                    : 'bg-amber-500 text-white'
+                    : t === 'semi_fixed'
+                      ? 'bg-orange-500 text-white'
+                      : 'bg-amber-500 text-white'
                   : 'bg-white border border-gray-200 text-gray-500'
               }`}
             >
-              {t === 'fixed' ? '📌 ' : '🔄 '}
+              {t === 'fixed' ? '📌 ' : t === 'semi_fixed' ? '〜 ' : '🔄 '}
               {EXPENSE_TYPE_LABELS[t]}
             </button>
           ))}
@@ -78,7 +81,7 @@ export default function AddExpenseModal({ defaultType = 'fixed', editItem, onSav
             <label className="text-xs font-medium text-gray-500">項目名 *</label>
             <input
               className={inputCls}
-              placeholder={expenseType === 'fixed' ? '例: 家賃' : '例: Adobe CC'}
+              placeholder={expenseType === 'fixed' ? '例: 家賃' : expenseType === 'semi_fixed' ? '例: 電気代' : '例: Adobe CC'}
               value={name}
               onChange={e => setName(e.target.value)}
             />

@@ -38,8 +38,9 @@ export default function DashboardScreen({
 
   const activeExpenses = useMemo(() => expenses.filter(e => e.isActive), [expenses]);
   const monthlyFixedExp = activeExpenses.filter(e => e.expenseType === 'fixed').reduce((s, e) => s + e.amount, 0);
+  const monthlySemiFixedExp = activeExpenses.filter(e => e.expenseType === 'semi_fixed').reduce((s, e) => s + e.amount, 0);
   const monthlyVariableExp = activeExpenses.filter(e => e.expenseType === 'variable').reduce((s, e) => s + e.amount, 0);
-  const monthlyExpenseTotal = monthlyFixedExp + monthlyVariableExp;
+  const monthlyExpenseTotal = monthlyFixedExp + monthlySemiFixedExp + monthlyVariableExp;
 
   const monthlyBizExp = useMemo(
     () => businessExpenses.filter(e => e.date.startsWith(thisYM)).reduce((s, e) => s + e.amount, 0),
@@ -122,12 +123,16 @@ export default function DashboardScreen({
       {/* 支出内訳 */}
       <div className="bg-white rounded-2xl p-4 shadow-sm">
         <div className="text-xs font-semibold text-gray-500 mb-2">月次支出（有効）</div>
-        <div className="flex gap-2 mb-2">
-          <div className="flex-1 bg-rose-50 rounded-xl px-3 py-2">
+        <div className="flex gap-1.5 mb-2">
+          <div className="flex-1 bg-rose-50 rounded-xl px-2 py-2">
             <div className="text-xs text-rose-600">📌 固定費</div>
             <div className="font-bold text-rose-800 text-sm">{fmt(monthlyFixedExp)}</div>
           </div>
-          <div className="flex-1 bg-amber-50 rounded-xl px-3 py-2">
+          <div className="flex-1 bg-orange-50 rounded-xl px-2 py-2">
+            <div className="text-xs text-orange-600">〜 準固定費</div>
+            <div className="font-bold text-orange-800 text-sm">{fmt(monthlySemiFixedExp)}</div>
+          </div>
+          <div className="flex-1 bg-amber-50 rounded-xl px-2 py-2">
             <div className="text-xs text-amber-600">🔄 変動費</div>
             <div className="font-bold text-amber-800 text-sm">{fmt(monthlyVariableExp)}</div>
           </div>
