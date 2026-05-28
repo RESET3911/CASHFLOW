@@ -2,7 +2,7 @@ export type User = 'saku' | 'takahashi' | 'shared';
 
 export type IncomeType = 'fixed' | 'variable';
 
-export type ExpenseType = 'fixed' | 'semi_fixed' | 'variable';
+export type ExpenseType = 'fixed' | 'semi_fixed' | 'variable' | 'business_fixed';
 
 export type ExpenseCategory =
   | 'rent'
@@ -81,6 +81,7 @@ export const EXPENSE_TYPE_LABELS: Record<ExpenseType, string> = {
   fixed: '固定費',
   semi_fixed: '準固定費',
   variable: '変動費・サブスク',
+  business_fixed: '固定経費',
 };
 
 export const EXPENSE_CATEGORY_LABELS: Record<ExpenseCategory, string> = {

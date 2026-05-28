@@ -11,7 +11,7 @@ interface Props {
   onToggle: (item: Expense) => void;
 }
 
-type Tab = 'fixed' | 'semi_fixed' | 'variable';
+type Tab = 'fixed' | 'semi_fixed' | 'variable' | 'business_fixed';
 
 export default function ExpenseScreen({ expenses, onSave, onDelete, onToggle }: Props) {
   const [showAdd, setShowAdd] = useState(false);
@@ -22,13 +22,19 @@ export default function ExpenseScreen({ expenses, onSave, onDelete, onToggle }: 
   const fixedItems = useMemo(() => expenses.filter(e => e.expenseType === 'fixed'), [expenses]);
   const semiFixedItems = useMemo(() => expenses.filter(e => e.expenseType === 'semi_fixed'), [expenses]);
   const variableItems = useMemo(() => expenses.filter(e => e.expenseType === 'variable'), [expenses]);
+  const bizFixedItems = useMemo(() => expenses.filter(e => e.expenseType === 'business_fixed'), [expenses]);
 
-  const currentItems = tab === 'fixed' ? fixedItems : tab === 'semi_fixed' ? semiFixedItems : variableItems;
+  const currentItems =
+    tab === 'fixed' ? fixedItems :
+    tab === 'semi_fixed' ? semiFixedItems :
+    tab === 'business_fixed' ? bizFixedItems :
+    variableItems;
 
   const fixedActiveTotal = fixedItems.filter(e => e.isActive).reduce((s, e) => s + e.amount, 0);
   const semiFixedActiveTotal = semiFixedItems.filter(e => e.isActive).reduce((s, e) => s + e.amount, 0);
   const variableActiveTotal = variableItems.filter(e => e.isActive).reduce((s, e) => s + e.amount, 0);
-  const totalActive = fixedActiveTotal + semiFixedActiveTotal + variableActiveTotal;
+  const bizFixedActiveTotal = bizFixedItems.filter(e => e.isActive).reduce((s, e) => s + e.amount, 0);
+  const totalActive = fixedActiveTotal + semiFixedActiveTotal + variableActiveTotal + bizFixedActiveTotal;
 
   const grouped = useMemo(() => {
     const map: Record<string, Expense[]> = {};
@@ -63,34 +69,41 @@ export default function ExpenseScreen({ expenses, onSave, onDelete, onToggle }: 
       </div>
 
       {/* Summary strip */}
-      <div className="flex gap-2 px-4 mb-4">
-        <div className="flex-1 bg-rose-50 rounded-2xl px-2 py-2.5">
+      <div className="grid grid-cols-2 gap-2 px-4 mb-4">
+        <div className="bg-rose-50 rounded-2xl px-2 py-2.5">
           <div className="text-xs text-rose-600">📌 固定費</div>
           <div className="font-bold text-rose-800 text-sm">{fmt(fixedActiveTotal)}<span className="text-xs font-normal">/月</span></div>
         </div>
-        <div className="flex-1 bg-orange-50 rounded-2xl px-2 py-2.5">
+        <div className="bg-orange-50 rounded-2xl px-2 py-2.5">
           <div className="text-xs text-orange-600">〜 準固定費</div>
           <div className="font-bold text-orange-800 text-sm">{fmt(semiFixedActiveTotal)}<span className="text-xs font-normal">/月</span></div>
         </div>
-        <div className="flex-1 bg-amber-50 rounded-2xl px-2 py-2.5">
+        <div className="bg-amber-50 rounded-2xl px-2 py-2.5">
           <div className="text-xs text-amber-600">🔄 変動費</div>
           <div className="font-bold text-amber-800 text-sm">{fmt(variableActiveTotal)}<span className="text-xs font-normal">/月</span></div>
+        </div>
+        <div className="bg-indigo-50 rounded-2xl px-2 py-2.5">
+          <div className="text-xs text-indigo-600">💼 固定経費</div>
+          <div className="font-bold text-indigo-800 text-sm">{fmt(bizFixedActiveTotal)}<span className="text-xs font-normal">/月</span></div>
         </div>
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-1.5 px-4 mb-4">
-        {(['fixed', 'semi_fixed', 'variable'] as Tab[]).map(t => (
+      <div className="grid grid-cols-2 gap-1.5 px-4 mb-4">
+        {(['fixed', 'semi_fixed', 'variable', 'business_fixed'] as Tab[]).map(t => (
           <button
             key={t}
             onClick={() => setTab(t)}
-            className={`flex-1 px-2 py-1.5 rounded-full text-xs font-medium transition-colors ${
+            className={`px-2 py-1.5 rounded-full text-xs font-medium transition-colors ${
               tab === t
-                ? t === 'fixed' ? 'bg-rose-500 text-white' : t === 'semi_fixed' ? 'bg-orange-500 text-white' : 'bg-amber-500 text-white'
+                ? t === 'fixed' ? 'bg-rose-500 text-white'
+                  : t === 'semi_fixed' ? 'bg-orange-500 text-white'
+                  : t === 'business_fixed' ? 'bg-indigo-500 text-white'
+                  : 'bg-amber-500 text-white'
                 : 'bg-white text-gray-500 border border-gray-200'
             }`}
           >
-            {t === 'fixed' ? '📌 固定費' : t === 'semi_fixed' ? '〜 準固定費' : '🔄 変動費'}
+            {t === 'fixed' ? '📌 固定費' : t === 'semi_fixed' ? '〜 準固定費' : t === 'business_fixed' ? '💼 固定経費' : '🔄 変動費'}
           </button>
         ))}
       </div>

@@ -13,6 +13,7 @@ interface Props {
 const FIXED_CATEGORIES: ExpenseCategory[] = ['rent', 'insurance', 'pension', 'health_insurance', 'communication', 'other'];
 const SEMI_FIXED_CATEGORIES: ExpenseCategory[] = ['utilities', 'medical', 'communication', 'other'];
 const VARIABLE_CATEGORIES: ExpenseCategory[] = ['subscription', 'food', 'entertainment', 'communication', 'other'];
+const BUSINESS_FIXED_CATEGORIES: ExpenseCategory[] = ['subscription', 'communication', 'other'];
 
 export default function AddExpenseModal({ defaultType = 'fixed', editItem, onSave, onClose }: Props) {
   const [expenseType, setExpenseType] = useState<ExpenseType>(editItem?.expenseType ?? defaultType);
@@ -21,7 +22,11 @@ export default function AddExpenseModal({ defaultType = 'fixed', editItem, onSav
   const [category, setCategory] = useState<ExpenseCategory>(editItem?.category ?? 'other');
   const [note, setNote] = useState(editItem?.note ?? '');
 
-  const categories = expenseType === 'fixed' ? FIXED_CATEGORIES : expenseType === 'semi_fixed' ? SEMI_FIXED_CATEGORIES : VARIABLE_CATEGORIES;
+  const categories =
+    expenseType === 'fixed' ? FIXED_CATEGORIES :
+    expenseType === 'semi_fixed' ? SEMI_FIXED_CATEGORIES :
+    expenseType === 'business_fixed' ? BUSINESS_FIXED_CATEGORIES :
+    VARIABLE_CATEGORIES;
 
   const handleSave = () => {
     const num = parseInt(amount.replace(/,/g, ''), 10);
@@ -55,22 +60,21 @@ export default function AddExpenseModal({ defaultType = 'fixed', editItem, onSav
         </div>
 
         {/* Type selector */}
-        <div className="flex gap-1.5 mb-5">
-          {(['fixed', 'semi_fixed', 'variable'] as ExpenseType[]).map(t => (
+        <div className="grid grid-cols-2 gap-1.5 mb-5">
+          {(['fixed', 'semi_fixed', 'variable', 'business_fixed'] as ExpenseType[]).map(t => (
             <button
               key={t}
               onClick={() => { setExpenseType(t); setCategory('other'); }}
-              className={`flex-1 py-2.5 rounded-xl text-xs font-semibold transition-colors ${
+              className={`py-2.5 rounded-xl text-xs font-semibold transition-colors ${
                 expenseType === t
-                  ? t === 'fixed'
-                    ? 'bg-rose-500 text-white'
-                    : t === 'semi_fixed'
-                      ? 'bg-orange-500 text-white'
-                      : 'bg-amber-500 text-white'
+                  ? t === 'fixed' ? 'bg-rose-500 text-white'
+                    : t === 'semi_fixed' ? 'bg-orange-500 text-white'
+                    : t === 'business_fixed' ? 'bg-indigo-500 text-white'
+                    : 'bg-amber-500 text-white'
                   : 'bg-white border border-gray-200 text-gray-500'
               }`}
             >
-              {t === 'fixed' ? '📌 ' : t === 'semi_fixed' ? '〜 ' : '🔄 '}
+              {t === 'fixed' ? '📌 ' : t === 'semi_fixed' ? '〜 ' : t === 'business_fixed' ? '💼 ' : '🔄 '}
               {EXPENSE_TYPE_LABELS[t]}
             </button>
           ))}
@@ -81,7 +85,7 @@ export default function AddExpenseModal({ defaultType = 'fixed', editItem, onSav
             <label className="text-xs font-medium text-gray-500">項目名 *</label>
             <input
               className={inputCls}
-              placeholder={expenseType === 'fixed' ? '例: 家賃' : expenseType === 'semi_fixed' ? '例: 電気代' : '例: Adobe CC'}
+              placeholder={expenseType === 'fixed' ? '例: 家賃' : expenseType === 'semi_fixed' ? '例: 電気代' : expenseType === 'business_fixed' ? '例: Adobe CC' : '例: Netflix'}
               value={name}
               onChange={e => setName(e.target.value)}
             />

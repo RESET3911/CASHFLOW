@@ -5,6 +5,8 @@ import {
   subscribeExpenses, saveExpense, deleteExpense,
   subscribeBusinessExpenses, saveBusinessExpense, deleteBusinessExpense,
   subscribeTaxSettings, saveTaxSettings,
+  subscribeSavingsBalance, saveSavingsBalance,
+  subscribeRingiApplications, type RingiApplication,
 } from './utils/storage';
 import DashboardScreen from './components/DashboardScreen';
 import IncomeScreen from './components/IncomeScreen';
@@ -28,6 +30,8 @@ export default function App() {
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [businessExpenses, setBusinessExpenses] = useState<BusinessExpense[]>([]);
   const [taxSettings, setTaxSettings] = useState<TaxSettings>(DEFAULT_TAX_SETTINGS);
+  const [savingsBalance, setSavingsBalance] = useState(0);
+  const [ringiApplications, setRingiApplications] = useState<RingiApplication[]>([]);
   const [loading, setLoading] = useState(true);
   const [showTaxSettings, setShowTaxSettings] = useState(false);
   const [toast, setToast] = useState<{ message: string; type: 'error' | 'success' } | null>(null);
@@ -40,6 +44,8 @@ export default function App() {
       subscribeExpenses(items => { setExpenses(items); done(); }, done),
       subscribeBusinessExpenses(setBusinessExpenses),
       subscribeTaxSettings(setTaxSettings),
+      subscribeSavingsBalance(setSavingsBalance),
+      subscribeRingiApplications(setRingiApplications),
     ];
     return () => unsubs.forEach(u => u());
   }, []);
@@ -99,6 +105,10 @@ export default function App() {
     try { await saveTaxSettings(s); setTaxSettings(s); } catch (e) { console.error(e); showError('設定の保存に失敗しました。'); }
   }, [showError]);
 
+  const handleSaveSavingsBalance = useCallback(async (amount: number) => {
+    try { await saveSavingsBalance(amount); } catch (e) { console.error(e); showError('貯蓄残高の保存に失敗しました。'); }
+  }, [showError]);
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-dvh">
@@ -126,6 +136,9 @@ export default function App() {
             expenses={expenses}
             businessExpenses={businessExpenses}
             taxSettings={taxSettings}
+            savingsBalance={savingsBalance}
+            onSaveSavingsBalance={handleSaveSavingsBalance}
+            ringiApplications={ringiApplications}
           />
         )}
         {screen === 'income' && (

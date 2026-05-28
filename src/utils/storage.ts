@@ -3,6 +3,14 @@ import {
   query, orderBy,
 } from 'firebase/firestore';
 import type { QuerySnapshot, DocumentData } from 'firebase/firestore';
+
+export interface RingiApplication {
+  id: string;
+  status: string;
+  amount: number;
+  item: string;
+  decidedAt?: string;
+}
 import { db } from '../firebase';
 import type { Income, Expense, BusinessExpense, TaxSettings } from '../types';
 
@@ -99,4 +107,22 @@ export function subscribeTaxSettings(onData: (s: TaxSettings) => void) {
 
 export async function saveTaxSettings(settings: TaxSettings) {
   await setDoc(doc(db, 'cashflow_settings', 'tax'), settings);
+}
+
+// ── SavingsBalance ────────────────────────────────────────────────
+export function subscribeSavingsBalance(onData: (amount: number) => void) {
+  return onSnapshot(doc(db, 'cashflow_settings', 'savings'), snap => {
+    onData(snap.exists() ? ((snap.data().amount as number) ?? 0) : 0);
+  });
+}
+
+export async function saveSavingsBalance(amount: number) {
+  await setDoc(doc(db, 'cashflow_settings', 'savings'), { amount });
+}
+
+// ── RINGI Applications (shared Firebase project) ──────────────────
+export function subscribeRingiApplications(onData: (apps: RingiApplication[]) => void) {
+  return onSnapshot(collection(db, 'applications'), snap => {
+    onData(snap.docs.map(d => ({ id: d.id, ...d.data() } as RingiApplication)));
+  }, () => onData([]));
 }
