@@ -2,6 +2,7 @@ import { useState, useMemo } from 'react';
 import type { Income } from '../types';
 import { fmt } from '../utils/taxCalc';
 import AddIncomeModal from './AddIncomeModal';
+import IncomeAllocationEditor from './IncomeAllocationEditor';
 
 interface Props {
   incomes: Income[];
@@ -20,6 +21,7 @@ export default function IncomeScreen({ incomes, onSave, onDelete }: Props) {
   const [editItem, setEditItem] = useState<Income | undefined>();
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
   const [tab, setTab] = useState<Tab>('all');
+  const [openAllocationId, setOpenAllocationId] = useState<string | null>(null);
 
   const years = useMemo(() => {
     const set = new Set(incomes.map(i => parseInt(i.invoiceDate.substring(0, 4))));
@@ -125,7 +127,12 @@ export default function IncomeScreen({ incomes, onSave, onDelete }: Props) {
                 <span className="text-sm font-mono text-gray-700">{fmt(group.total)}</span>
               </div>
               <div className="flex flex-col gap-2">
-                {group.items.map(item => (
+                {group.items.map(item => {
+                  const netAmt = item.amount - (item.outsourcingCost ?? 0);
+                  const allocatedTotal = (item.allocations ?? []).reduce((s, a) => s + a.amount, 0);
+                  const allocationOpen = openAllocationId === item.id;
+                  const hasAllocations = (item.allocations ?? []).length > 0;
+                  return (
                   <div key={item.id} className="bg-white rounded-2xl p-4 shadow-sm">
                     <div className="flex items-start justify-between gap-2">
                       <div className="flex-1 min-w-0">
@@ -146,20 +153,38 @@ export default function IncomeScreen({ incomes, onSave, onDelete }: Props) {
                         </div>
                         {item.outsourcingCost && item.outsourcingCost > 0 && (
                           <div className="text-xs text-indigo-500 mt-0.5">
-                            外注費 -{fmt(item.outsourcingCost)} → 純収入 {fmt(item.amount - item.outsourcingCost)}
+                            外注費 -{fmt(item.outsourcingCost)} → 純収入 {fmt(netAmt)}
                           </div>
                         )}
                       </div>
                       <div className="flex flex-col items-end gap-2">
                         <span className="font-bold text-gray-900 font-mono text-sm">{fmt(item.amount)}</span>
-                        <div className="flex gap-1">
+                        <div className="flex gap-1 flex-wrap justify-end">
+                          {item.incomeType === 'variable' && (
+                            <button
+                              onClick={() => setOpenAllocationId(allocationOpen ? null : item.id)}
+                              className={`text-xs px-2 py-1 rounded-lg ${
+                                hasAllocations
+                                  ? allocatedTotal >= netAmt ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'
+                                  : 'bg-violet-50 text-violet-500'
+                              }`}
+                            >
+                              {hasAllocations ? `配分 ${Math.round(allocatedTotal / netAmt * 100)}%` : '配分計画'}
+                            </button>
+                          )}
                           <button onClick={() => { setEditItem(item); setShowAdd(true); }} className="text-xs text-violet-500 px-2 py-1 rounded-lg bg-violet-50">編集</button>
                           <button onClick={() => { if (confirm(`「${item.clientName}」を削除しますか？`)) onDelete(item.id); }} className="text-xs text-red-400 px-2 py-1 rounded-lg bg-red-50">削除</button>
                         </div>
                       </div>
                     </div>
+
+                    {/* 配分計画エディタ */}
+                    {allocationOpen && (
+                      <IncomeAllocationEditor income={item} onSave={onSave} />
+                    )}
                   </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
           ))

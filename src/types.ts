@@ -27,6 +27,12 @@ export type BusinessExpenseCategory =
   | 'entertainment'
   | 'misc';
 
+export interface IncomeAllocation {
+  id: string;
+  label: string;
+  amount: number;
+}
+
 export interface Income {
   id: string;
   userId: User;
@@ -39,6 +45,7 @@ export interface Income {
   isPaid: boolean;
   outsourcingCost?: number;
   memo?: string;
+  allocations?: IncomeAllocation[];
   createdAt: number;
 }
 
