@@ -12,7 +12,7 @@ export interface RingiApplication {
   decidedAt?: string;
 }
 import { db } from '../firebase';
-import type { Income, Expense, BusinessExpense, TaxSettings } from '../types';
+import type { Income, Expense, BusinessExpense, TaxSettings, FixedSalarySettings } from '../types';
 
 const col = (name: string) => collection(db, `cashflow_${name}`);
 
@@ -107,6 +107,17 @@ export function subscribeTaxSettings(onData: (s: TaxSettings) => void) {
 
 export async function saveTaxSettings(settings: TaxSettings) {
   await setDoc(doc(db, 'cashflow_settings', 'tax'), settings);
+}
+
+// ── FixedSalarySettings ──────────────────────────────────────────
+export function subscribeFixedSalarySettings(onData: (s: FixedSalarySettings) => void) {
+  return onSnapshot(doc(db, 'cashflow_settings', 'fixed_salary'), (snap) => {
+    if (snap.exists()) onData(snap.data() as FixedSalarySettings);
+  });
+}
+
+export async function saveFixedSalarySettings(settings: FixedSalarySettings) {
+  await setDoc(doc(db, 'cashflow_settings', 'fixed_salary'), settings);
 }
 
 // ── SavingsBalance ────────────────────────────────────────────────

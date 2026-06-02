@@ -1,18 +1,22 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { v4 as uuidv4 } from 'uuid';
-import type { Income, IncomeAllocation } from '../types';
-import { fmt } from '../utils/taxCalc';
+import type { Income, IncomeAllocation, TaxSettings } from '../types';
+import { BUSINESS_EXPENSE_CATEGORY_LABELS, type BusinessExpenseCategory } from '../types';
+import { calcTax, fmt } from '../utils/taxCalc';
 
 interface Props {
   income: Income;
   onSave: (income: Income) => void;
+  taxSettings?: TaxSettings;
+  salaryIncome?: number;
 }
 
 const PRESET_LABELS = ['貯蓄', '税金積立', '固定費', 'RINGI予算', '自由費', 'その他'];
+const EXPENSE_CATEGORIES = Object.keys(BUSINESS_EXPENSE_CATEGORY_LABELS) as BusinessExpenseCategory[];
 
 type InputMode = 'amount' | 'percent';
 
-export default function IncomeAllocationEditor({ income, onSave }: Props) {
+export default function IncomeAllocationEditor({ income, onSave, taxSettings, salaryIncome = 0 }: Props) {
   const netAmount = income.amount - (income.outsourcingCost ?? 0);
   const allocations: IncomeAllocation[] = income.allocations ?? [];
   const allocatedTotal = allocations.reduce((s, a) => s + a.amount, 0);
@@ -22,6 +26,8 @@ export default function IncomeAllocationEditor({ income, onSave }: Props) {
   const [valueStr, setValueStr] = useState('');
   const [inputMode, setInputMode] = useState<InputMode>('amount');
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [isExpense, setIsExpense] = useState(false);
+  const [selectedCategory, setSelectedCategory] = useState<BusinessExpenseCategory>('supplies');
 
   const enteredAmount = (): number => {
     const n = parseFloat(valueStr.replace(/,/g, ''));
@@ -37,7 +43,12 @@ export default function IncomeAllocationEditor({ income, onSave }: Props) {
 
   const handleAdd = () => {
     if (!label.trim() || enteredAmount() <= 0) return;
-    const newItem: IncomeAllocation = { id: uuidv4(), label: label.trim(), amount: enteredAmount() };
+    const newItem: IncomeAllocation = {
+      id: uuidv4(),
+      label: label.trim(),
+      amount: enteredAmount(),
+      ...(isExpense ? { category: selectedCategory } : {}),
+    };
     onSave({ ...income, allocations: [...allocations, newItem] });
     setLabel('');
     setValueStr('');
@@ -62,6 +73,44 @@ export default function IncomeAllocationEditor({ income, onSave }: Props) {
     const colors = ['bg-violet-400', 'bg-emerald-400', 'bg-amber-400', 'bg-rose-400', 'bg-sky-400', 'bg-orange-400'];
     return colors[i % colors.length];
   };
+
+  const expenseAllocTotal = allocations.filter(a => a.category).reduce((s, a) => s + a.amount, 0);
+
+  const taxImpact = useMemo(() => {
+    if (!taxSettings || expenseAllocTotal <= 0) return null;
+    const annualExpense = expenseAllocTotal;
+    const base = calcTax({
+      businessIncome: Math.max(0, netAmount * 12),
+      salaryIncome,
+      pension: taxSettings.pension,
+      nhiPremium: taxSettings.nhiPremium,
+    });
+    const after = calcTax({
+      businessIncome: Math.max(0, (netAmount - annualExpense) * 12),
+      salaryIncome,
+      pension: taxSettings.pension,
+      nhiPremium: taxSettings.nhiPremium,
+    });
+    const saving = base.totalTax - after.totalTax;
+    return { saving: Math.round(saving / 12), annualSaving: saving };
+  }, [taxSettings, expenseAllocTotal, netAmount, salaryIncome]);
+
+  const previewTaxSaving = useMemo(() => {
+    if (!taxSettings || !isExpense || enteredAmount() <= 0) return null;
+    const base = calcTax({
+      businessIncome: Math.max(0, netAmount * 12),
+      salaryIncome,
+      pension: taxSettings.pension,
+      nhiPremium: taxSettings.nhiPremium,
+    });
+    const after = calcTax({
+      businessIncome: Math.max(0, (netAmount - enteredAmount()) * 12),
+      salaryIncome,
+      pension: taxSettings.pension,
+      nhiPremium: taxSettings.nhiPremium,
+    });
+    return Math.round((base.totalTax - after.totalTax) / 12);
+  }, [taxSettings, isExpense, valueStr, inputMode, netAmount, salaryIncome]);
 
   return (
     <div className="mt-3 pt-3 border-t border-gray-100">
@@ -91,7 +140,14 @@ export default function IncomeAllocationEditor({ income, onSave }: Props) {
           {allocations.map((a, i) => (
             <div key={a.id} className="flex items-center gap-2">
               <div className={`w-2 h-2 rounded-full flex-shrink-0 ${barColor(i)}`} />
-              <span className="text-xs text-gray-600 flex-1">{a.label}</span>
+              <div className="flex-1 min-w-0">
+                <span className="text-xs text-gray-600">{a.label}</span>
+                {a.category && (
+                  <span className="ml-1 text-xs text-indigo-500 bg-indigo-50 px-1.5 py-0.5 rounded">
+                    {BUSINESS_EXPENSE_CATEGORY_LABELS[a.category]}
+                  </span>
+                )}
+              </div>
               {editingId === a.id ? (
                 <EditRow
                   defaultAmount={a.amount}
@@ -112,27 +168,70 @@ export default function IncomeAllocationEditor({ income, onSave }: Props) {
         </div>
       )}
 
+      {/* 経費節税サマリー */}
+      {taxImpact && (
+        <div className="mb-3 bg-indigo-50 rounded-xl px-3 py-2 flex items-center justify-between">
+          <span className="text-xs text-indigo-700">💡 経費計上による節税（月換算）</span>
+          <span className="text-xs font-bold text-indigo-700">△ {fmt(taxImpact.saving)}</span>
+        </div>
+      )}
+
       {/* 追加フォーム */}
       <div className="bg-gray-50 rounded-xl p-2.5 space-y-2">
+        {/* プリセット + 経費ボタン */}
         <div className="flex flex-wrap gap-1.5">
           {PRESET_LABELS.map(p => (
             <button
               key={p}
-              onClick={() => setLabel(p)}
+              onClick={() => { setLabel(p); setIsExpense(false); }}
               className={`text-xs px-2 py-1 rounded-lg transition-colors ${
-                label === p ? 'bg-violet-600 text-white' : 'bg-white text-gray-600 border border-gray-200'
+                label === p && !isExpense ? 'bg-violet-600 text-white' : 'bg-white text-gray-600 border border-gray-200'
               }`}
             >
               {p}
             </button>
           ))}
+          <button
+            onClick={() => { setIsExpense(e => !e); if (!isExpense) setLabel('経費'); else setLabel(''); }}
+            className={`text-xs px-2 py-1 rounded-lg transition-colors font-semibold ${
+              isExpense ? 'bg-indigo-600 text-white' : 'bg-white text-indigo-600 border border-indigo-300'
+            }`}
+          >
+            💼 経費
+          </button>
         </div>
-        <input
-          className="w-full text-xs rounded-lg border border-gray-200 px-2.5 py-2 focus:outline-none focus:border-violet-400 bg-white"
-          placeholder="または項目名を入力..."
-          value={label}
-          onChange={e => setLabel(e.target.value)}
-        />
+
+        {/* 勘定科目（経費モード時） */}
+        {isExpense && (
+          <div className="bg-white rounded-lg p-2 border border-indigo-200">
+            <div className="text-xs text-indigo-500 mb-1.5 font-medium">勘定科目</div>
+            <div className="flex flex-wrap gap-1">
+              {EXPENSE_CATEGORIES.map(c => (
+                <button
+                  key={c}
+                  onClick={() => setSelectedCategory(c)}
+                  className={`text-xs px-2 py-1 rounded-lg transition-colors ${
+                    selectedCategory === c ? 'bg-indigo-600 text-white' : 'bg-gray-100 text-gray-600'
+                  }`}
+                >
+                  {BUSINESS_EXPENSE_CATEGORY_LABELS[c]}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* ラベル入力（経費以外） */}
+        {!isExpense && (
+          <input
+            className="w-full text-xs rounded-lg border border-gray-200 px-2.5 py-2 focus:outline-none focus:border-violet-400 bg-white"
+            placeholder="または項目名を入力..."
+            value={label}
+            onChange={e => setLabel(e.target.value)}
+          />
+        )}
+
+        {/* 金額入力 */}
         <div className="flex gap-1.5">
           <div className="flex rounded-lg overflow-hidden border border-gray-200 flex-shrink-0">
             {(['amount', 'percent'] as InputMode[]).map(m => (
@@ -165,11 +264,21 @@ export default function IncomeAllocationEditor({ income, onSave }: Props) {
           <button
             onClick={handleAdd}
             disabled={!label.trim() || enteredAmount() <= 0}
-            className="px-3 py-1.5 rounded-lg bg-violet-500 text-white text-xs font-semibold disabled:opacity-40"
+            className={`px-3 py-1.5 rounded-lg text-white text-xs font-semibold disabled:opacity-40 ${
+              isExpense ? 'bg-indigo-500' : 'bg-violet-500'
+            }`}
           >
             追加
           </button>
         </div>
+
+        {/* 経費節税プレビュー */}
+        {previewTaxSaving !== null && previewTaxSaving > 0 && (
+          <div className="bg-indigo-50 rounded-lg px-2.5 py-1.5 flex items-center justify-between">
+            <span className="text-xs text-indigo-600">この経費の節税効果（月換算）</span>
+            <span className="text-xs font-bold text-indigo-700">△ {fmt(previewTaxSaving)}</span>
+          </div>
+        )}
       </div>
     </div>
   );

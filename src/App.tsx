@@ -1,10 +1,11 @@
 import { useState, useEffect, useCallback } from 'react';
-import type { Income, Expense, BusinessExpense, TaxSettings } from './types';
+import type { Income, Expense, BusinessExpense, TaxSettings, FixedSalarySettings } from './types';
 import {
   subscribeIncomes, saveIncome, deleteIncome,
   subscribeExpenses, saveExpense, deleteExpense,
   subscribeBusinessExpenses, saveBusinessExpense, deleteBusinessExpense,
   subscribeTaxSettings, saveTaxSettings,
+  subscribeFixedSalarySettings, saveFixedSalarySettings,
   subscribeSavingsBalance, saveSavingsBalance,
   subscribeRingiApplications, type RingiApplication,
 } from './utils/storage';
@@ -24,12 +25,19 @@ const DEFAULT_TAX_SETTINGS: TaxSettings = {
   nhiPremium: 0,
 };
 
+const DEFAULT_FIXED_SALARY: FixedSalarySettings = {
+  enabled: false,
+  companyName: '',
+  amount: 0,
+};
+
 export default function App() {
   const [screen, setScreen] = useState<Screen>('dashboard');
   const [incomes, setIncomes] = useState<Income[]>([]);
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [businessExpenses, setBusinessExpenses] = useState<BusinessExpense[]>([]);
   const [taxSettings, setTaxSettings] = useState<TaxSettings>(DEFAULT_TAX_SETTINGS);
+  const [fixedSalary, setFixedSalary] = useState<FixedSalarySettings>(DEFAULT_FIXED_SALARY);
   const [savingsBalance, setSavingsBalance] = useState(0);
   const [ringiApplications, setRingiApplications] = useState<RingiApplication[]>([]);
   const [loading, setLoading] = useState(true);
@@ -44,11 +52,35 @@ export default function App() {
       subscribeExpenses(items => { setExpenses(items); done(); }, done),
       subscribeBusinessExpenses(setBusinessExpenses),
       subscribeTaxSettings(setTaxSettings),
+      subscribeFixedSalarySettings(setFixedSalary),
       subscribeSavingsBalance(setSavingsBalance),
       subscribeRingiApplications(setRingiApplications),
     ];
     return () => unsubs.forEach(u => u());
   }, []);
+
+  // 毎月の固定給を自動生成
+  useEffect(() => {
+    if (!fixedSalary.enabled || fixedSalary.amount <= 0 || !fixedSalary.companyName) return;
+    const now = new Date();
+    const ym = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+    const autoId = `fixed_salary_${ym}`;
+    const alreadyExists = incomes.some(i => i.id === autoId);
+    if (alreadyExists) return;
+    const invoiceDate = `${ym}-01`;
+    saveIncome({
+      id: autoId,
+      userId: 'shared',
+      incomeType: 'fixed',
+      clientName: fixedSalary.companyName,
+      projectName: '月給',
+      amount: fixedSalary.amount,
+      invoiceDate,
+      isPaid: true,
+      paidDate: invoiceDate,
+      createdAt: Date.now(),
+    }).catch(console.error);
+  }, [fixedSalary, incomes]);
 
   const showError = useCallback((msg: string) => {
     setToast({ message: msg, type: 'error' });
@@ -105,6 +137,10 @@ export default function App() {
     try { await saveTaxSettings(s); setTaxSettings(s); } catch (e) { console.error(e); showError('設定の保存に失敗しました。'); }
   }, [showError]);
 
+  const handleSaveFixedSalary = useCallback(async (s: FixedSalarySettings) => {
+    try { await saveFixedSalarySettings(s); } catch (e) { console.error(e); showError('固定給設定の保存に失敗しました。'); }
+  }, [showError]);
+
   const handleSaveSavingsBalance = useCallback(async (amount: number) => {
     try { await saveSavingsBalance(amount); } catch (e) { console.error(e); showError('貯蓄残高の保存に失敗しました。'); }
   }, [showError]);
@@ -146,6 +182,8 @@ export default function App() {
             incomes={incomes}
             onSave={handleSaveIncome}
             onDelete={handleDeleteIncome}
+            taxSettings={taxSettings}
+            salaryIncome={taxSettings.salaryIncome}
           />
         )}
         {screen === 'expense' && (
@@ -171,6 +209,8 @@ export default function App() {
         <TaxSettingsModal
           settings={taxSettings}
           onSave={handleSaveTaxSettings}
+          fixedSalary={fixedSalary}
+          onSaveFixedSalary={handleSaveFixedSalary}
           onClose={() => setShowTaxSettings(false)}
         />
       )}

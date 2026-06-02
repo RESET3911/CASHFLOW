@@ -4,6 +4,7 @@ import { BUSINESS_EXPENSE_CATEGORY_LABELS, type BusinessExpenseCategory } from '
 import { calcTax, fmt } from '../utils/taxCalc';
 
 interface Props {
+  projectedSalesAnnual: number;
   projectedBusinessIncome: number;
   effectiveSalaryIncome: number;
   taxSettings: TaxSettings;
@@ -13,7 +14,7 @@ type ExpenseMode = 'monthly' | 'onetime';
 
 const CATEGORIES = Object.keys(BUSINESS_EXPENSE_CATEGORY_LABELS) as BusinessExpenseCategory[];
 
-export default function ExpenseTaxSimulator({ projectedBusinessIncome, effectiveSalaryIncome, taxSettings }: Props) {
+export default function ExpenseTaxSimulator({ projectedSalesAnnual, projectedBusinessIncome, effectiveSalaryIncome, taxSettings }: Props) {
   const [open, setOpen] = useState(false);
   const [amountStr, setAmountStr] = useState('');
   const [mode, setMode] = useState<ExpenseMode>('monthly');
@@ -56,6 +57,18 @@ export default function ExpenseTaxSimulator({ projectedBusinessIncome, effective
       {open && (
         <div className="px-4 pb-4 border-t border-gray-100 pt-3 space-y-4">
           <p className="text-xs text-gray-400">経費として計上した場合の税負担への影響を試算します</p>
+
+          {/* 基準額（売上ベース） */}
+          <div className="bg-gray-50 rounded-xl p-3 text-xs space-y-1">
+            <div className="flex justify-between">
+              <span className="text-gray-500">売上（年間推計）</span>
+              <span className="font-mono text-gray-700">{fmt(projectedSalesAnnual)}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-500">既存経費差引後の事業所得</span>
+              <span className="font-mono text-gray-700">{fmt(projectedBusinessIncome)}</span>
+            </div>
+          </div>
 
           {/* 種別 */}
           <div className="flex gap-2">

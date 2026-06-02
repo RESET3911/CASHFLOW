@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import type { Income } from '../types';
+import type { Income, TaxSettings } from '../types';
 import { fmt } from '../utils/taxCalc';
 import AddIncomeModal from './AddIncomeModal';
 import IncomeAllocationEditor from './IncomeAllocationEditor';
@@ -8,6 +8,8 @@ interface Props {
   incomes: Income[];
   onSave: (item: Income) => void;
   onDelete: (id: string) => void;
+  taxSettings?: TaxSettings;
+  salaryIncome?: number;
 }
 
 function getYearMonth(dateStr: string) {
@@ -16,7 +18,7 @@ function getYearMonth(dateStr: string) {
 
 type Tab = 'all' | 'fixed' | 'variable';
 
-export default function IncomeScreen({ incomes, onSave, onDelete }: Props) {
+export default function IncomeScreen({ incomes, onSave, onDelete, taxSettings, salaryIncome }: Props) {
   const [showAdd, setShowAdd] = useState(false);
   const [editItem, setEditItem] = useState<Income | undefined>();
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
@@ -180,7 +182,7 @@ export default function IncomeScreen({ incomes, onSave, onDelete }: Props) {
 
                     {/* 配分計画エディタ */}
                     {allocationOpen && (
-                      <IncomeAllocationEditor income={item} onSave={onSave} />
+                      <IncomeAllocationEditor income={item} onSave={onSave} taxSettings={taxSettings} salaryIncome={salaryIncome} />
                     )}
                   </div>
                   );

@@ -37,12 +37,12 @@ export default function DashboardScreen({
       .reduce((s, i) => s + i.amount, 0),
     [incomes, thisYM],
   );
-  const monthlyVariable = useMemo(
+  // 売上（変動収入のグロス・外注費等を差し引く前）
+  const monthlyVariableSales = useMemo(
     () => incomes.filter(i => i.incomeType === 'variable' && getYearMonth(i.invoiceDate) === thisYM)
-      .reduce((s, i) => s + i.amount - (i.outsourcingCost ?? 0), 0),
+      .reduce((s, i) => s + i.amount, 0),
     [incomes, thisYM],
   );
-  const monthlyIncome = monthlyFixed + monthlyVariable;
 
   const activeExpenses = useMemo(() => expenses.filter(e => e.isActive), [expenses]);
   const monthlyFixedExp = activeExpenses.filter(e => e.expenseType === 'fixed').reduce((s, e) => s + e.amount, 0);
@@ -52,10 +52,16 @@ export default function DashboardScreen({
   const monthlyLivingTotal = monthlyFixedExp + monthlySemiFixedExp + monthlyVariableExp;
   const monthlyExpenseTotal = monthlyLivingTotal + monthlyBizFixedExp;
 
+  // 当月経費（経費タブ：外注費＋一時的な経費）
   const monthlyBizExp = useMemo(
     () => businessExpenses.filter(e => e.date.startsWith(thisYM)).reduce((s, e) => s + e.amount, 0),
     [businessExpenses, thisYM],
   );
+
+  // 純収入 = 売上 − 経費（外注費＋一時経費）− 固定経費
+  const monthlyVariableNet = monthlyVariableSales - monthlyBizExp - monthlyBizFixedExp;
+  // 手取りベースの収入（固定給 + 変動純収入）
+  const monthlyIncomeNet = monthlyFixed + monthlyVariableNet;
 
   // 売掛未回収
   const unpaidTotal = useMemo(
@@ -64,21 +70,23 @@ export default function DashboardScreen({
   );
   const unpaidCount = useMemo(() => incomes.filter(i => !i.isPaid).length, [incomes]);
 
-  const ytdVariableMonthly = useMemo(() => {
+  // 売上ベースのYTD（外注費を引かないグロス）
+  const ytdSalesMonthly = useMemo(() => {
     return Array.from({ length: thisMonth }, (_, i) => {
       const ym = `${thisYear}-${String(i + 1).padStart(2, '0')}`;
       return incomes
         .filter(inc => inc.incomeType === 'variable' && getYearMonth(inc.invoiceDate) === ym)
-        .reduce((s, inc) => s + inc.amount - (inc.outsourcingCost ?? 0), 0);
+        .reduce((s, inc) => s + inc.amount, 0);
     });
   }, [incomes, thisYear, thisMonth]);
 
-  const projectedVariableAnnual = calcYTDProjection(ytdVariableMonthly, thisMonth);
+  const projectedSalesAnnual = calcYTDProjection(ytdSalesMonthly, thisMonth);
   const projectedAnnualBizExp = businessExpenses
     .filter(e => e.date.startsWith(String(thisYear)))
     .reduce((s, e) => s + e.amount, 0) / thisMonth * 12;
   const projectedAnnualBizFixed = monthlyBizFixedExp * 12;
-  const projectedBusinessIncome = Math.max(0, projectedVariableAnnual - projectedAnnualBizExp - projectedAnnualBizFixed);
+  // 事業所得 = 売上 − 経費 − 固定経費（外注費は経費側で1回だけ控除）
+  const projectedBusinessIncome = Math.max(0, projectedSalesAnnual - projectedAnnualBizExp - projectedAnnualBizFixed);
 
   const effectiveSalaryIncome = taxSettings.salaryIncome > 0
     ? taxSettings.salaryIncome
@@ -92,7 +100,9 @@ export default function DashboardScreen({
     nhiPremium: taxSettings.nhiPremium,
   }), [projectedBusinessIncome, effectiveSalaryIncome, taxSettings]);
 
-  const netMonthly = monthlyIncome - monthlyExpenseTotal - monthlyBizExp - tax.monthlyProvision;
+  // 推定手取り = 純収入(固定給+変動純収入) − 生活費 − 税金積立
+  // （経費・固定経費は純収入で控除済みなので二重に引かない）
+  const netMonthly = monthlyIncomeNet - monthlyLivingTotal - tax.monthlyProvision;
 
   // 来月予測（固定収入 - 固定費 - 準固定費 - 固定経費）
   const nextMonthNet = monthlyFixed - monthlyFixedExp - monthlySemiFixedExp - monthlyBizFixedExp;
@@ -116,13 +126,13 @@ export default function DashboardScreen({
       const fixedInc = incomes.filter(inc => inc.incomeType === 'fixed' && getYearMonth(inc.invoiceDate) === ym)
         .reduce((s, inc) => s + inc.amount, 0);
       const varInc = incomes.filter(inc => inc.incomeType === 'variable' && getYearMonth(inc.invoiceDate) === ym)
-        .reduce((s, inc) => s + inc.amount - (inc.outsourcingCost ?? 0), 0);
+        .reduce((s, inc) => s + inc.amount, 0);
       const bizExp = businessExpenses.filter(e => e.date.startsWith(ym)).reduce((s, e) => s + e.amount, 0);
       const ringi = ringiByMonth[ym] ?? 0;
       return {
         month: `${d.getMonth() + 1}月`,
         固定給: fixedInc,
-        変動収入: varInc,
+        売上: varInc,
         生活費: monthlyLivingTotal,
         固定経費: monthlyBizFixedExp,
         経費: bizExp,
@@ -187,19 +197,24 @@ export default function DashboardScreen({
 
       {/* 収入内訳 */}
       <div className="bg-white rounded-2xl p-4 shadow-sm">
-        <div className="text-xs font-semibold text-gray-500 mb-2">当月純収入</div>
+        <div className="text-xs font-semibold text-gray-500 mb-2">当月収入</div>
         <div className="flex gap-2 mb-2">
           <div className="flex-1 bg-emerald-50 rounded-xl px-3 py-2">
             <div className="text-xs text-emerald-600">🏢 固定給</div>
             <div className="font-bold text-emerald-800 text-sm">{fmt(monthlyFixed)}</div>
           </div>
           <div className="flex-1 bg-violet-50 rounded-xl px-3 py-2">
-            <div className="text-xs text-violet-600">💼 変動収入</div>
-            <div className="font-bold text-violet-800 text-sm">{fmt(monthlyVariable)}</div>
+            <div className="text-xs text-violet-600">💼 変動収入（売上）</div>
+            <div className="font-bold text-violet-800 text-sm">{fmt(monthlyVariableSales)}</div>
           </div>
         </div>
+        {/* 純収入 = 売上 − 経費 − 固定経費 */}
+        <div className="flex items-center justify-between bg-violet-50/60 rounded-xl px-3 py-2 mb-2">
+          <div className="text-xs text-violet-600">💎 変動収入（純収入・経費差引後）</div>
+          <div className={`font-bold text-sm ${monthlyVariableNet >= 0 ? 'text-violet-800' : 'text-red-600'}`}>{fmt(monthlyVariableNet)}</div>
+        </div>
         <div className="flex items-center justify-between">
-          <div className="text-right text-sm font-bold text-gray-800">合計 {fmt(monthlyIncome)}</div>
+          <div className="text-right text-sm font-bold text-gray-800">手取り収入 {fmt(monthlyIncomeNet)}</div>
           {unpaidCount > 0 && (
             <div className="text-xs bg-amber-50 text-amber-700 rounded-lg px-2 py-1">
               売掛未回収 {unpaidCount}件 <span className="font-bold">{fmt(unpaidTotal)}</span>
@@ -235,15 +250,15 @@ export default function DashboardScreen({
       {/* 当月経費 */}
       {monthlyBizExp > 0 && (
         <div className="bg-white rounded-2xl p-4 shadow-sm">
-          <div className="text-xs font-semibold text-gray-500 mb-2">当月経費（一時的な仕事の経費）</div>
+          <div className="text-xs font-semibold text-gray-500 mb-2">当月経費（外注費＋一時的な仕事の経費）</div>
           <div className="flex gap-2">
             <div className="flex-1 bg-indigo-50 rounded-xl px-3 py-2">
               <div className="text-xs text-indigo-600">🧾 経費合計</div>
               <div className="font-bold text-indigo-800 text-sm">{fmt(monthlyBizExp)}</div>
             </div>
             <div className="flex-1 bg-gray-50 rounded-xl px-3 py-2">
-              <div className="text-xs text-gray-400">経費差引後の収入</div>
-              <div className="font-bold text-gray-700 text-sm">{fmt(Math.max(0, monthlyIncome - monthlyBizExp))}</div>
+              <div className="text-xs text-gray-400">変動収入の純収入</div>
+              <div className="font-bold text-gray-700 text-sm">{fmt(monthlyVariableNet)}</div>
             </div>
           </div>
         </div>
@@ -259,7 +274,7 @@ export default function DashboardScreen({
         <div className={`rounded-2xl p-4 ${netMonthly >= 0 ? 'bg-violet-50 text-violet-800' : 'bg-red-100 text-red-800'}`}>
           <div className="text-xs font-medium opacity-70 mb-1">推定手取り</div>
           <div className="text-xl font-bold">{fmt(Math.max(0, netMonthly))}</div>
-          <div className="text-xs opacity-60 mt-0.5">収入-支出-経費-税積立</div>
+          <div className="text-xs opacity-60 mt-0.5">純収入+固定給-生活費-税積立</div>
         </div>
       </div>
 
@@ -301,7 +316,7 @@ export default function DashboardScreen({
             <Tooltip formatter={(v) => fmt(Number(v))} labelStyle={{ fontSize: 12 }} contentStyle={{ fontSize: 12 }} />
             <Legend iconSize={8} wrapperStyle={{ fontSize: 10 }} />
             <Bar dataKey="固定給" fill="#10b981" radius={[3, 3, 0, 0]} />
-            <Bar dataKey="変動収入" fill="#8b5cf6" radius={[3, 3, 0, 0]} />
+            <Bar dataKey="売上" fill="#8b5cf6" radius={[3, 3, 0, 0]} />
             <Bar dataKey="生活費" fill="#f43f5e" radius={[3, 3, 0, 0]} />
             <Bar dataKey="固定経費" fill="#6366f1" radius={[3, 3, 0, 0]} />
             <Bar dataKey="経費" fill="#94a3b8" radius={[3, 3, 0, 0]} />
@@ -313,6 +328,7 @@ export default function DashboardScreen({
 
       {/* 経費候補シミュレーター */}
       <ExpenseTaxSimulator
+        projectedSalesAnnual={projectedSalesAnnual}
         projectedBusinessIncome={projectedBusinessIncome}
         effectiveSalaryIncome={effectiveSalaryIncome}
         taxSettings={taxSettings}
@@ -323,7 +339,7 @@ export default function DashboardScreen({
         <div className="text-sm font-semibold text-gray-700 mb-3">年間推計（{thisYear}年）</div>
         <div className="space-y-2 text-sm">
           {[
-            { label: '変動収入（推計年間）', value: fmt(projectedVariableAnnual) },
+            { label: '売上（推計年間）', value: fmt(projectedSalesAnnual) },
             { label: '仕事経費（推計年間）', value: fmt(Math.round(projectedAnnualBizExp)) },
             { label: '固定経費（年間）', value: fmt(Math.round(projectedAnnualBizFixed)) },
             { label: '事業所得推計', value: fmt(projectedBusinessIncome), highlight: true },

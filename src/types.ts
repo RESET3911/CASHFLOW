@@ -31,6 +31,7 @@ export interface IncomeAllocation {
   id: string;
   label: string;
   amount: number;
+  category?: BusinessExpenseCategory;
 }
 
 export interface Income {
@@ -75,6 +76,12 @@ export interface TaxSettings {
   salaryIncome: number;
   pension: number;
   nhiPremium: number;
+}
+
+export interface FixedSalarySettings {
+  enabled: boolean;
+  companyName: string;
+  amount: number;
 }
 
 // ── ラベル / カラー ─────────────────────────────────────────────
